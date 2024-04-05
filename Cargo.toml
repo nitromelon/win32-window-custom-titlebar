@@ -1,0 +1,31 @@
+[package]
+name = "windowsgui"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.81"
+windows = { version = "0.54.0", features = [
+    # To get the window handle
+    "Win32_UI",
+    "Win32_UI_Controls",
+
+    # For modifying the window's border
+    "Win32_Management",
+    "Win32_Graphics_Dwm",
+
+    # Custom resize...?
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Gdi",
+
+    # Restarting new frames
+    "Win32_System",
+    "Win32_System_LibraryLoader",
+
+    "Win32_UI_HiDpi",
+
+    "Win32_UI_Input",
+    "Win32_UI_Input_KeyboardAndMouse",
+] }
