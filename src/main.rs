@@ -213,32 +213,33 @@ fn win32_center_rect_in_rect(to_center: &mut RECT, outer_rect: &RECT) {
 // Description:
 // 0xffff = 65535, so we take the first 16 bits
 // We need to cast to i16 first in order to maintain the sign (negative or positive) then cast to i32
-fn get_x_param(l_param: LPARAM) -> i32 {
+const fn get_x_param(l_param: LPARAM) -> i32 {
     (l_param.0 & 0xffff) as i16 as i32
 }
 
 // 0xffff0000 = 4294901760, so we take the last 16 bits.
 // The last 0000 is as we >> aka shift right by 16
-fn get_y_param(l_param: LPARAM) -> i32 {
+const fn get_y_param(l_param: LPARAM) -> i32 {
     ((l_param.0 >> 16) & 0xffff) as i16 as i32
 }
 
-fn rgb(r: u8, g: u8, b: u8) -> u32 {
+const fn rgb(r: u8, g: u8, b: u8) -> u32 {
     (r as u32) | ((g as u32) << 8) | ((b as u32) << 16)
 }
 
-fn get_r_value(rgb: u32) -> u8 {
+const fn get_r_value(rgb: u32) -> u8 {
     (rgb & 0xff) as u8
 }
 
-fn get_g_value(rgb: u32) -> u8 {
+const fn get_g_value(rgb: u32) -> u8 {
     ((rgb >> 8) & 0xff) as u8
 }
 
-fn get_b_value(rgb: u32) -> u8 {
+const fn get_b_value(rgb: u32) -> u8 {
     ((rgb >> 16) & 0xff) as u8
 }
 
+#[allow(clippy::cognitive_complexity)]
 unsafe extern "system" fn window_proc(
     handle: HWND,
     message: u32,
@@ -270,7 +271,7 @@ unsafe extern "system" fn window_proc(
             requested_client_rect.bottom -= frame_y + padding;
 
             let is_maximized = win32_window_is_maximized(handle);
-            if let Ok(true) = is_maximized {
+            if matches!(is_maximized, Ok(true)) {
                 requested_client_rect.top += padding;
             } else if let Err(e) = is_maximized {
                 eprintln!("Failed to get window maximized state\n{:?}", e);
@@ -330,7 +331,7 @@ unsafe extern "system" fn window_proc(
                 _ => {}
             }
 
-            if let CustomTitleBarHoveredButton::Maximize = title_bar_hovered_button {
+            if title_bar_hovered_button == CustomTitleBarHoveredButton::Maximize {
                 return LRESULT(HTMAXBUTTON as _);
             }
 
@@ -411,7 +412,7 @@ unsafe extern "system" fn window_proc(
 
             // Minimize Button
             {
-                if let CustomTitleBarHoveredButton::Minimize = title_bar_hovered_button {
+                if title_bar_hovered_button == CustomTitleBarHoveredButton::Minimize {
                     FillRect(hdc, &button_rects.minimize, titlebar_hover_brush);
                 }
                 let mut icon_rect = RECT {
@@ -427,7 +428,7 @@ unsafe extern "system" fn window_proc(
             // Maximize Button
             {
                 let is_hovered =
-                    if let CustomTitleBarHoveredButton::Maximize = title_bar_hovered_button {
+                    if title_bar_hovered_button == CustomTitleBarHoveredButton::Maximize {
                         FillRect(hdc, &button_rects.maximize, titlebar_hover_brush);
                         true
                     } else {
@@ -443,7 +444,7 @@ unsafe extern "system" fn window_proc(
                 win32_center_rect_in_rect(&mut icon_rect, &button_rects.maximize);
                 SelectObject(hdc, button_icon_pen);
                 SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
-                if let Ok(true) = win32_window_is_maximized(handle) {
+                if matches!(win32_window_is_maximized(handle), Ok(true)) {
                     Rectangle(
                         hdc,
                         icon_rect.left + WIN32_MAXIMIZED_BUTTON_OFFSET,
@@ -475,7 +476,7 @@ unsafe extern "system" fn window_proc(
             // Close button
             {
                 let mut custom_pen = HPEN(0);
-                if let CustomTitleBarHoveredButton::Close = title_bar_hovered_button {
+                if title_bar_hovered_button == CustomTitleBarHoveredButton::Close {
                     let fill_brush = CreateSolidBrush(COLORREF(rgb(255, 0, 0))); // aka red color!!
                     FillRect(hdc, &button_rects.close, fill_brush);
                     DeleteObject(fill_brush);
@@ -506,8 +507,7 @@ unsafe extern "system" fn window_proc(
 
             // Draw window title
             let mut logical_font = LOGFONTW::default();
-            let mut old_font = HFONT(0);
-            if SystemParametersInfoForDpi(
+            let old_font = if SystemParametersInfoForDpi(
                 SPI_GETICONTITLELOGFONT.0,
                 size_of::<LOGFONTW>() as _,
                 Some(&mut logical_font as *mut LOGFONTW as _),
@@ -517,8 +517,10 @@ unsafe extern "system" fn window_proc(
             .is_ok()
             {
                 let theme_font = CreateFontIndirectW(&logical_font);
-                old_font = HFONT(SelectObject(hdc, theme_font).0);
-            }
+                HFONT(SelectObject(hdc, theme_font).0)
+            } else {
+                HFONT(0)
+            };
 
             // Get title in title bar
             let text_length = GetWindowTextLengthW(handle);
@@ -690,7 +692,7 @@ unsafe extern "system" fn window_proc(
                 return LRESULT(0);
             }
             CustomTitleBarHoveredButton::Maximize => {
-                let mode = if let Ok(true) = win32_window_is_maximized(handle) {
+                let mode = if matches!(win32_window_is_maximized(handle), Ok(true)) {
                     SW_NORMAL
                 } else {
                     SW_MAXIMIZE
